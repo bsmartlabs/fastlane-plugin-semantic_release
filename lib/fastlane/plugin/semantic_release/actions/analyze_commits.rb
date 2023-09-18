@@ -118,6 +118,10 @@ module Fastlane
         hash = beginning[:hash] || 'HEAD'
 
         # converts last version string to the int numbers
+        current_major = (version.split('.')[0] || 0).to_i
+        current_minor = (version.split('.')[1] || 0).to_i
+        current_patch = (version.split('.')[2] || 0).to_i
+
         next_major = (version.split('.')[0] || 0).to_i
         next_minor = (version.split('.')[1] || 0).to_i
         next_patch = (version.split('.')[2] || 0).to_i
@@ -167,11 +171,16 @@ module Fastlane
             is_next_version_compatible_with_codepush = false
           end
 
-          next_version = "#{next_major}.#{next_minor}.#{next_patch}"
           UI.message("#{next_version}: #{subject}") if params[:show_version_path]
         end
 
-        next_version = "#{next_major}.#{next_minor}.#{next_patch}"
+        if next_major > current_major
+          next_version = "#{next_major}.0.0"
+        elsif next_minor > current_minor
+          next_version = "#{current_major}.#{next_minor}.0"
+        elsif next_patch > current_patch
+          next_version = "#{current_major}.#{current_minor}.#{next_patch}"
+        end
 
         is_next_version_releasable = Helper::SemanticReleaseHelper.semver_gt(next_version, version)
 
