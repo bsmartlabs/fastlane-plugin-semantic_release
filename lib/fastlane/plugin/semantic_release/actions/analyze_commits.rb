@@ -122,9 +122,9 @@ module Fastlane
         current_minor = (version.split('.')[1] || 0).to_i
         current_patch = (version.split('.')[2] || 0).to_i
 
-        next_major = (version.split('.')[0] || 0).to_i
-        next_minor = (version.split('.')[1] || 0).to_i
-        next_patch = (version.split('.')[2] || 0).to_i
+        major = false
+        minor = false
+        patch = false
 
         is_next_version_compatible_with_codepush = true
 
@@ -157,14 +157,11 @@ module Fastlane
           )
 
           if commit[:release] == "major" || commit[:is_breaking_change]
-            next_major += 1
-            next_minor = 0
-            next_patch = 0
+            major = true
           elsif commit[:release] == "minor"
-            next_minor += 1
-            next_patch = 0
+            minor = true
           elsif commit[:release] == "patch"
-            next_patch += 1
+            patch = true
           end
 
           unless commit[:is_codepush_friendly]
@@ -174,12 +171,12 @@ module Fastlane
           UI.message("#{next_version}: #{subject}") if params[:show_version_path]
         end
 
-        if next_major > current_major
-          next_version = "#{next_major}.0.0"
-        elsif next_minor > current_minor
-          next_version = "#{current_major}.#{next_minor}.0"
-        elsif next_patch > current_patch
-          next_version = "#{current_major}.#{current_minor}.#{next_patch}"
+        if major
+          next_version = "#{current_major + 1}.0.0"
+        elsif minor
+          next_version = "#{current_major}.#{current_minor + 1}.0"
+        elsif patch
+          next_version = "#{current_major}.#{current_minor}.#{current_patch + 1}"
         end
 
         is_next_version_releasable = Helper::SemanticReleaseHelper.semver_gt(next_version, version)
