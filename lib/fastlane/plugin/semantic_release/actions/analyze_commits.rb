@@ -113,14 +113,20 @@ module Fastlane
         end
 
         # Default last version
-        version = beginning[:version] || '0.0.0'
+        version = beginning[:version] || '1.0.0'
         # If the tag is not found we are taking HEAD as reference
         hash = beginning[:hash] || 'HEAD'
 
         # converts last version string to the int numbers
-        next_major = (version.split('.')[0] || 0).to_i
-        next_minor = (version.split('.')[1] || 0).to_i
-        next_patch = (version.split('.')[2] || 0).to_i
+        current_major = (version.split('.')[0] || 0).to_i
+        current_minor = (version.split('.')[1] || 0).to_i
+        current_patch = (version.split('.')[2] || 0).to_i
+
+        next_version = "#{current_major}.#{current_minor}.#{current_patch}"
+
+        major = false
+        minor = false
+        patch = false
 
         is_next_version_compatible_with_codepush = true
 
@@ -153,25 +159,34 @@ module Fastlane
           )
 
           if commit[:release] == "major" || commit[:is_breaking_change]
-            next_major += 1
-            next_minor = 0
-            next_patch = 0
+            major = true
           elsif commit[:release] == "minor"
-            next_minor += 1
-            next_patch = 0
+            minor = true
           elsif commit[:release] == "patch"
-            next_patch += 1
+            patch = true
           end
 
           unless commit[:is_codepush_friendly]
             is_next_version_compatible_with_codepush = false
           end
 
-          next_version = "#{next_major}.#{next_minor}.#{next_patch}"
-          UI.message("#{next_version}: #{subject}") if params[:show_version_path]
+          # UI.message("#{next_version}: #{subject}") if params[:show_version_path]
         end
 
-        next_version = "#{next_major}.#{next_minor}.#{next_patch}"
+        next_major = current_major
+        next_minor = current_minor
+        next_patch = current_patch
+
+        if major
+          next_major = current_major + 1
+          next_version = "#{next_major}.0.0"
+        elsif minor
+          next_minor = current_minor + 1
+          next_version = "#{current_major}.#{next_minor}.0"
+        elsif patch
+          next_patch = current_patch + 1
+          next_version = "#{current_major}.#{current_minor}.#{next_patch}"
+        end
 
         is_next_version_releasable = Helper::SemanticReleaseHelper.semver_gt(next_version, version)
 
@@ -193,65 +208,8 @@ module Fastlane
         is_next_version_releasable
       end
 
-      def self.is_codepush_friendly(params)
-        git_command = "git rev-list --max-parents=0 HEAD"
-        # Begining of the branch is taken for codepush analysis
-        hash_lines = Actions.sh("#{git_command} | wc -l", log: params[:debug]).chomp
-        hash = Actions.sh(git_command, log: params[:debug]).chomp
-        next_major = 0
-        next_minor = 0
-        next_patch = 0
-        last_incompatible_codepush_version = '0.0.0'
-
-        if hash_lines.to_i > 1
-          UI.error("#{git_command} resulted to more than 1 hash")
-          UI.error('This usualy happens when you pull only part of a git history. Check out how you pull the repo! "git fetch" should be enough.')
-          Actions.sh(git_command, log: true).chomp
-          return false
-        end
-
-        # Get commits log between last version and head
-        splitted = get_commits_from_hash(
-          hash: hash,
-          debug: params[:debug]
-        )
-        releases = params[:releases]
-        codepush_friendly = params[:codepush_friendly]
-
-        format_pattern = lane_context[SharedValues::CONVENTIONAL_CHANGELOG_ACTION_FORMAT_PATTERN]
-        splitted.each do |line|
-          # conventional commits are in format
-          # type: subject (fix: app crash - for example)
-          commit = Helper::SemanticReleaseHelper.parse_commit(
-            commit_subject: line.split("|")[0],
-            commit_body: line.split("|")[1],
-            releases: releases,
-            pattern: format_pattern,
-            codepush_friendly: codepush_friendly
-          )
-
-          if commit[:release] == "major" || commit[:is_breaking_change]
-            next_major += 1
-            next_minor = 0
-            next_patch = 0
-          elsif commit[:release] == "minor"
-            next_minor += 1
-            next_patch = 0
-          elsif commit[:release] == "patch"
-            next_patch += 1
-          end
-
-          unless commit[:is_codepush_friendly]
-            last_incompatible_codepush_version = "#{next_major}.#{next_minor}.#{next_patch}"
-          end
-        end
-
-        Actions.lane_context[SharedValues::RELEASE_LAST_INCOMPATIBLE_CODEPUSH_VERSION] = last_incompatible_codepush_version
-      end
-
       def self.run(params)
         is_next_version_releasable = is_releasable(params)
-        is_codepush_friendly(params)
 
         is_next_version_releasable
       end

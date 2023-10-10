@@ -28,7 +28,7 @@ module Fastlane
         end
 
         last_tag_hash = lane_context[SharedValues::RELEASE_LAST_TAG_HASH]
-        version = lane_context[SharedValues::RELEASE_NEXT_VERSION]
+        version = params[:version] || lane_context[SharedValues::RELEASE_NEXT_VERSION]
 
         # Get commits log between last version and head
         commits = get_commits_from_hash(
@@ -228,6 +228,11 @@ module Fastlane
           FastlaneCore::ConfigItem.new(
             key: :title,
             description: "Title for release notes",
+            optional: true
+          ),
+          FastlaneCore::ConfigItem.new(
+            key: :version,
+            description: "Define a specific version insted of the automatic one",
             optional: true
           ),
           FastlaneCore::ConfigItem.new(
